@@ -1,0 +1,34 @@
+[
+  {
+    "id": "1",
+    "username": "journalist",
+    "password": "journalist123",
+    "role": "journalist",
+    "displayName": "张记者",
+    "createdAt": "2024-01-01T00:00:00.000Z"
+  },
+  {
+    "id": "2",
+    "username": "editor",
+    "password": "editor123",
+    "role": "editor",
+    "displayName": "李编辑",
+    "createdAt": "2024-01-01T00:00:00.000Z"
+  },
+  {
+    "id": "3",
+    "username": "legal",
+    "password": "legal123",
+    "role": "legal",
+    "displayName": "王法务",
+    "createdAt": "2024-01-01T00:00:00.000Z"
+  },
+  {
+    "id": "4",
+    "username": "admin",
+    "password": "admin123",
+    "role": "admin",
+    "displayName": "赵管理员",
+    "createdAt": "2024-01-01T00:00:00.000Z"
+  }
+]

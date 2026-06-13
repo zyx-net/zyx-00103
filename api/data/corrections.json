@@ -1,0 +1,34 @@
+[
+  {
+    "id": "1",
+    "manuscriptId": "1",
+    "manuscriptTitle": "某市GDP突破万亿大关",
+    "type": "factual_error",
+    "evidence": "经核实，该市2023年GDP实际为9500亿元，并非突破万亿。数据来源：市统计局年报。",
+    "deadline": "2024-01-20",
+    "impactScope": "约5万名读者已阅读该文章",
+    "hasSourceDispute": false,
+    "status": "published",
+    "creatorId": "1",
+    "creatorName": "张记者",
+    "currentHandlerId": null,
+    "createdAt": "2024-01-16T10:00:00.000Z",
+    "updatedAt": "2024-01-18T15:00:00.000Z"
+  },
+  {
+    "id": "2",
+    "manuscriptId": "2",
+    "manuscriptTitle": "新能源汽车销量创新高",
+    "type": "source_correction",
+    "evidence": "文中引用的销量数据实际来自某行业协会，而非官方统计部门。需标注数据来源。",
+    "deadline": "2024-01-25",
+    "impactScope": "约3万名读者已阅读该文章",
+    "hasSourceDispute": true,
+    "status": "pending_legal",
+    "creatorId": "1",
+    "creatorName": "张记者",
+    "currentHandlerId": "3",
+    "createdAt": "2024-01-21T09:00:00.000Z",
+    "updatedAt": "2024-01-22T11:00:00.000Z"
+  }
+]

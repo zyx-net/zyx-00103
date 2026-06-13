@@ -1,0 +1,98 @@
+[
+  {
+    "id": "1",
+    "correctionId": "1",
+    "action": "create",
+    "operatorId": "1",
+    "operatorName": "张记者",
+    "operatorRole": "journalist",
+    "comment": "创建更正单",
+    "previousStatus": "",
+    "newStatus": "draft",
+    "createdAt": "2024-01-16T10:00:00.000Z"
+  },
+  {
+    "id": "2",
+    "correctionId": "1",
+    "action": "submit",
+    "operatorId": "1",
+    "operatorName": "张记者",
+    "operatorRole": "journalist",
+    "comment": "提交更正单",
+    "previousStatus": "draft",
+    "newStatus": "pending_editor",
+    "createdAt": "2024-01-16T11:00:00.000Z"
+  },
+  {
+    "id": "3",
+    "correctionId": "1",
+    "action": "review_pass",
+    "operatorId": "2",
+    "operatorName": "李编辑",
+    "operatorRole": "editor",
+    "comment": "复核通过，数据确实有误",
+    "previousStatus": "pending_editor",
+    "newStatus": "pending_legal",
+    "createdAt": "2024-01-17T09:00:00.000Z"
+  },
+  {
+    "id": "4",
+    "correctionId": "1",
+    "action": "legal_confirm",
+    "operatorId": "3",
+    "operatorName": "王法务",
+    "operatorRole": "legal",
+    "comment": "确认无误，符合发布条件",
+    "previousStatus": "pending_legal",
+    "newStatus": "pending_publish",
+    "createdAt": "2024-01-17T14:00:00.000Z"
+  },
+  {
+    "id": "5",
+    "correctionId": "1",
+    "action": "publish",
+    "operatorId": "4",
+    "operatorName": "赵管理员",
+    "operatorRole": "admin",
+    "comment": "正式发布更正",
+    "previousStatus": "pending_publish",
+    "newStatus": "published",
+    "createdAt": "2024-01-18T15:00:00.000Z"
+  },
+  {
+    "id": "6",
+    "correctionId": "2",
+    "action": "create",
+    "operatorId": "1",
+    "operatorName": "张记者",
+    "operatorRole": "journalist",
+    "comment": "创建更正单",
+    "previousStatus": "",
+    "newStatus": "draft",
+    "createdAt": "2024-01-21T09:00:00.000Z"
+  },
+  {
+    "id": "7",
+    "correctionId": "2",
+    "action": "submit",
+    "operatorId": "1",
+    "operatorName": "张记者",
+    "operatorRole": "journalist",
+    "comment": "提交更正单",
+    "previousStatus": "draft",
+    "newStatus": "pending_editor",
+    "createdAt": "2024-01-21T10:00:00.000Z"
+  },
+  {
+    "id": "8",
+    "correctionId": "2",
+    "action": "review_pass",
+    "operatorId": "2",
+    "operatorName": "李编辑",
+    "operatorRole": "editor",
+    "comment": "编辑复核通过，需法务确认来源争议",
+    "previousStatus": "pending_editor",
+    "newStatus": "pending_legal",
+    "createdAt": "2024-01-22T11:00:00.000Z"
+  }
+]
