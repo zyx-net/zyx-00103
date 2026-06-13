@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """
-导出功能验证脚本
-测试三种情况：
-1. manuscriptId=2 筛选导出
-2. 日期范围筛选导出
-3. 无筛选导出
+Export Validation Test Script
+Tests three scenarios:
+1. manuscriptId=2 filter export
+2. Date range filter export
+3. No filter export (all data)
 
-验证 JSON 和 CSV 字段一致性
+Validates JSON and CSV field consistency
 """
 
 import requests
@@ -19,14 +20,17 @@ from typing import Dict, List, Any
 BASE_URL = "http://localhost:5173/api"
 ADMIN_TOKEN = "4"  # admin user id
 
+PASS_MARK = "[PASS]"
+FAIL_MARK = "[FAIL]"
+
 def print_header(title: str):
     print(f"\n{'='*60}")
     print(f" {title}")
     print(f"{'='*60}")
 
 def print_result(name: str, passed: bool, details: str = ""):
-    status = "✅ PASS" if passed else "❌ FAIL"
-    print(f"{status} - {name}")
+    status = PASS_MARK if passed else FAIL_MARK
+    print(f"{status} {name}")
     if details:
         print(f"    {details}")
 
@@ -54,12 +58,12 @@ def parse_csv(csv_text: str) -> List[Dict[str, str]]:
     return list(reader)
 
 def test_case_1_manuscript_id():
-    """测试用例1: manuscriptId=2 筛选导出"""
-    print_header("测试用例1: manuscriptId=2 筛选导出")
+    """Test Case 1: manuscriptId=2 filter export"""
+    print_header("Test Case 1: manuscriptId=2 Filter Export")
     
     params = {"manuscriptId": "2"}
     
-    # JSON 导出
+    # JSON Export
     json_result = test_export_json(params)
     json_passed = json_result.get("success", False)
     
@@ -69,56 +73,51 @@ def test_case_1_manuscript_id():
         manuscripts = data.get("manuscripts", [])
         filters = data.get("filters", {})
         
-        # 验证筛选条件
         filter_correct = filters.get("manuscriptId") == "2"
-        
-        # 验证所有更正单都属于稿件2
         all_match = all(c.get("manuscriptId") == "2" for c in corrections)
-        
-        # 验证稿件只包含稿件2
         manuscript_match = all(m.get("id") == "2" for m in manuscripts)
         
-        print_result("JSON 筛选条件正确", filter_correct, f"filters.manuscriptId = {filters.get('manuscriptId')}")
-        print_result("JSON 更正单全部属于稿件2", all_match, f"共 {len(corrections)} 条更正单")
-        print_result("JSON 稿件只包含稿件2", manuscript_match, f"共 {len(manuscripts)} 篇稿件")
+        print_result("JSON filter correct", filter_correct, f"filters.manuscriptId = {filters.get('manuscriptId')}")
+        print_result("JSON corrections all belong to manuscript 2", all_match, f"Total: {len(corrections)} corrections")
+        print_result("JSON manuscripts only contain manuscript 2", manuscript_match, f"Total: {len(manuscripts)} manuscripts")
         
         json_count = len(corrections)
     else:
-        print_result("JSON 导出请求成功", False, json_result.get("error", "Unknown error"))
+        print_result("JSON export request successful", False, json_result.get("error", "Unknown error"))
         json_count = 0
     
-    # CSV 导出
+    # CSV Export
     csv_success, csv_text = test_export_csv(params)
     if csv_success:
         csv_rows = parse_csv(csv_text)
-        csv_all_match = all(row.get("稿件ID") == "2" for row in csv_rows)
+        csv_all_match = all(row.get("更正单ID") != "" for row in csv_rows) and len(csv_rows) == 1
+        csv_all_belong = all(row.get("稿件ID") == "2" for row in csv_rows) if csv_rows else True
         
-        print_result("CSV 更正单全部属于稿件2", csv_all_match, f"共 {len(csv_rows)} 条更正单")
+        print_result("CSV corrections all belong to manuscript 2", csv_all_belong, f"Total: {len(csv_rows)} corrections")
         csv_count = len(csv_rows)
     else:
-        print_result("CSV 导出请求成功", False, csv_text)
+        print_result("CSV export request successful", False, csv_text)
         csv_count = 0
     
-    # 验证 JSON 和 CSV 数量一致
     count_match = json_count == csv_count
-    print_result("JSON 和 CSV 更正单数量一致", count_match, f"JSON: {json_count}, CSV: {csv_count}")
+    print_result("JSON and CSV correction counts match", count_match, f"JSON: {json_count}, CSV: {csv_count}")
     
     return all([
         json_passed,
         filter_correct if json_passed else False,
         all_match if json_passed else False,
         csv_success,
-        csv_all_match if csv_success else False,
+        csv_all_belong if csv_success else False,
         count_match
     ])
 
 def test_case_2_date_range():
-    """测试用例2: 日期范围筛选导出"""
-    print_header("测试用例2: 日期范围筛选导出")
+    """Test Case 2: Date range filter export"""
+    print_header("Test Case 2: Date Range Filter Export")
     
     params = {"dateFrom": "2024-01-16", "dateTo": "2024-01-17"}
     
-    # JSON 导出
+    # JSON Export
     json_result = test_export_json(params)
     json_passed = json_result.get("success", False)
     
@@ -127,10 +126,8 @@ def test_case_2_date_range():
         corrections = data.get("corrections", [])
         filters = data.get("filters", {})
         
-        # 验证筛选条件
         filter_correct = filters.get("dateFrom") == "2024-01-16" and filters.get("dateTo") == "2024-01-17"
         
-        # 验证所有更正单都在日期范围内
         from datetime import datetime
         all_in_range = True
         for c in corrections:
@@ -141,27 +138,26 @@ def test_case_2_date_range():
                 all_in_range = False
                 break
         
-        print_result("JSON 筛选条件正确", filter_correct, f"dateFrom={filters.get('dateFrom')}, dateTo={filters.get('dateTo')}")
-        print_result("JSON 更正单全部在日期范围内", all_in_range, f"共 {len(corrections)} 条更正单")
+        print_result("JSON filter correct", filter_correct, f"dateFrom={filters.get('dateFrom')}, dateTo={filters.get('dateTo')}")
+        print_result("JSON corrections all in date range", all_in_range, f"Total: {len(corrections)} corrections")
         
         json_count = len(corrections)
     else:
-        print_result("JSON 导出请求成功", False, json_result.get("error", "Unknown error"))
+        print_result("JSON export request successful", False, json_result.get("error", "Unknown error"))
         json_count = 0
     
-    # CSV 导出
+    # CSV Export
     csv_success, csv_text = test_export_csv(params)
     if csv_success:
         csv_rows = parse_csv(csv_text)
         csv_count = len(csv_rows)
-        print_result("CSV 导出成功", True, f"共 {csv_count} 条更正单")
+        print_result("CSV export successful", True, f"Total: {csv_count} corrections")
     else:
-        print_result("CSV 导出请求成功", False, csv_text)
+        print_result("CSV export request successful", False, csv_text)
         csv_count = 0
     
-    # 验证 JSON 和 CSV 数量一致
     count_match = json_count == csv_count
-    print_result("JSON 和 CSV 更正单数量一致", count_match, f"JSON: {json_count}, CSV: {csv_count}")
+    print_result("JSON and CSV correction counts match", count_match, f"JSON: {json_count}, CSV: {csv_count}")
     
     return all([
         json_passed,
@@ -172,10 +168,10 @@ def test_case_2_date_range():
     ])
 
 def test_case_3_no_filter():
-    """测试用例3: 无筛选导出"""
-    print_header("测试用例3: 无筛选导出")
+    """Test Case 3: No filter export (all data)"""
+    print_header("Test Case 3: No Filter Export (All Data)")
     
-    # JSON 导出
+    # JSON Export
     json_result = test_export_json()
     json_passed = json_result.get("success", False)
     
@@ -186,34 +182,30 @@ def test_case_3_no_filter():
         history = data.get("history", [])
         filters = data.get("filters", {})
         
-        # 验证筛选条件为空
         filter_correct = all(v is None for v in filters.values())
         
-        print_result("JSON 筛选条件为空", filter_correct, f"filters = {filters}")
-        print_result("JSON 包含所有稿件", True, f"共 {len(manuscripts)} 篇稿件")
-        print_result("JSON 包含所有更正单", True, f"共 {len(corrections)} 条更正单")
-        print_result("JSON 包含所有历史记录", True, f"共 {len(history)} 条记录")
+        print_result("JSON filter is empty", filter_correct, f"filters = {filters}")
+        print_result("JSON contains all manuscripts", True, f"Total: {len(manuscripts)} manuscripts")
+        print_result("JSON contains all corrections", True, f"Total: {len(corrections)} corrections")
+        print_result("JSON contains all history records", True, f"Total: {len(history)} records")
         
         json_count = len(corrections)
-        json_manuscript_count = len(manuscripts)
     else:
-        print_result("JSON 导出请求成功", False, json_result.get("error", "Unknown error"))
+        print_result("JSON export request successful", False, json_result.get("error", "Unknown error"))
         json_count = 0
-        json_manuscript_count = 0
     
-    # CSV 导出
+    # CSV Export
     csv_success, csv_text = test_export_csv()
     if csv_success:
         csv_rows = parse_csv(csv_text)
         csv_count = len(csv_rows)
-        print_result("CSV 导出成功", True, f"共 {csv_count} 条更正单")
+        print_result("CSV export successful", True, f"Total: {csv_count} corrections")
     else:
-        print_result("CSV 导出请求成功", False, csv_text)
+        print_result("CSV export request successful", False, csv_text)
         csv_count = 0
     
-    # 验证 JSON 和 CSV 数量一致
     count_match = json_count == csv_count
-    print_result("JSON 和 CSV 更正单数量一致", count_match, f"JSON: {json_count}, CSV: {csv_count}")
+    print_result("JSON and CSV correction counts match", count_match, f"JSON: {json_count}, CSV: {csv_count}")
     
     return all([
         json_passed,
@@ -223,29 +215,29 @@ def test_case_3_no_filter():
     ])
 
 def test_json_csv_field_consistency():
-    """测试 JSON 和 CSV 字段一致性"""
-    print_header("测试 JSON 和 CSV 字段一致性")
+    """Test JSON and CSV field consistency"""
+    print_header("Test JSON and CSV Field Consistency")
     
-    # 获取无筛选导出
+    # Get no-filter export
     json_result = test_export_json()
     csv_success, csv_text = test_export_csv()
     
     if not json_result.get("success") or not csv_success:
-        print_result("导出请求成功", False)
+        print_result("Export requests successful", False)
         return False
     
     json_corrections = json_result.get("data", {}).get("corrections", [])
     csv_rows = parse_csv(csv_text)
     
     if len(json_corrections) == 0 or len(csv_rows) == 0:
-        print_result("有数据可比较", False, "导出数据为空")
-        return True  # 空数据也算一致
+        print_result("Data available for comparison", False, "Export data is empty")
+        return True  # Empty data counts as consistent
     
-    # 比较 JSON 和 CSV 的第一条数据字段
+    # Compare JSON and CSV first data row fields
     json_first = json_corrections[0]
     csv_first = csv_rows[0]
     
-    # JSON 字段到 CSV 字段的映射
+    # JSON to CSV field mapping
     field_mapping = {
         "id": "更正单ID",
         "manuscriptId": "稿件ID",
@@ -264,11 +256,11 @@ def test_json_csv_field_consistency():
         json_val = str(json_first.get(json_field, ""))
         csv_val = csv_first.get(csv_field, "")
         
-        # 特殊处理布尔值
+        # Special handling for boolean
         if json_field == "hasSourceDispute":
             json_val = "是" if json_val == "True" else "否"
         
-        # 类型字段需要转换
+        # Type field needs conversion
         if json_field == "type":
             type_map = {
                 "factual_error": "事实错误",
@@ -279,7 +271,7 @@ def test_json_csv_field_consistency():
             }
             json_val = type_map.get(json_val, json_val)
         
-        # 状态字段需要转换
+        # Status field needs conversion
         if json_field == "status":
             status_map = {
                 "draft": "草稿",
@@ -294,53 +286,53 @@ def test_json_csv_field_consistency():
         match = json_val == csv_val or json_val in csv_val or csv_val in json_val
         if not match:
             all_match = False
-            print_result(f"字段 {json_field}/{csv_field} 一致", False, f"JSON: {json_val}, CSV: {csv_val}")
+            print_result(f"Field {json_field}/{csv_field} consistent", False, f"JSON: {json_val}, CSV: {csv_val}")
         else:
-            print_result(f"字段 {json_field}/{csv_field} 一致", True)
+            print_result(f"Field {json_field}/{csv_field} consistent", True)
     
     return all_match
 
 def main():
     print("="*60)
-    print(" 稿件更正与发布审批工作台 - 导出功能验证脚本")
+    print(" Correction & Publish Workflow - Export Validation Script")
     print("="*60)
-    print(f"API 地址: {BASE_URL}")
-    print(f"管理员 Token: {ADMIN_TOKEN}")
+    print(f"API URL: {BASE_URL}")
+    print(f"Admin Token: {ADMIN_TOKEN}")
     
-    # 检查服务是否可用
+    # Check if service is available
     try:
         response = requests.get(f"{BASE_URL}/health")
         if response.status_code != 200:
-            print(f"\n❌ 服务不可用: HTTP {response.status_code}")
+            print(f"\n{FAIL_MARK} Service unavailable: HTTP {response.status_code}")
             sys.exit(1)
-        print(f"\n✅ 服务可用")
+        print(f"\n{PASS_MARK} Service available")
     except Exception as e:
-        print(f"\n❌ 无法连接服务: {e}")
+        print(f"\n{FAIL_MARK} Cannot connect to service: {e}")
         sys.exit(1)
     
-    # 运行测试用例
+    # Run test cases
     results = []
-    results.append(("测试用例1: manuscriptId=2 筛选导出", test_case_1_manuscript_id()))
-    results.append(("测试用例2: 日期范围筛选导出", test_case_2_date_range()))
-    results.append(("测试用例3: 无筛选导出", test_case_3_no_filter()))
-    results.append(("JSON 和 CSV 字段一致性", test_json_csv_field_consistency()))
+    results.append(("Test Case 1: manuscriptId=2 Filter Export", test_case_1_manuscript_id()))
+    results.append(("Test Case 2: Date Range Filter Export", test_case_2_date_range()))
+    results.append(("Test Case 3: No Filter Export", test_case_3_no_filter()))
+    results.append(("JSON and CSV Field Consistency", test_json_csv_field_consistency()))
     
-    # 汇总结果
-    print_header("测试汇总")
+    # Summary
+    print_header("Test Summary")
     all_passed = True
     for name, passed in results:
-        status = "✅ PASS" if passed else "❌ FAIL"
-        print(f"{status} - {name}")
+        status = PASS_MARK if passed else FAIL_MARK
+        print(f"{status} {name}")
         if not passed:
             all_passed = False
     
     print("\n" + "="*60)
     if all_passed:
-        print(" 🎉 所有测试通过!")
+        print(" All tests passed!")
         print("="*60)
         sys.exit(0)
     else:
-        print(" ⚠️  部分测试失败，请检查上述错误")
+        print(" Some tests failed, please check errors above")
         print("="*60)
         sys.exit(1)
 

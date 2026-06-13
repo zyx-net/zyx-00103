@@ -156,18 +156,20 @@ curl -H "Authorization: Bearer $TOKEN" "http://localhost:5173/api/export/csv?dat
 
 **Windows (PowerShell):**
 ```powershell
-# 设置管理员 Token
+# Set admin token
 $headers = @{ "Authorization" = "Bearer 4" }
 
-# 1. 无筛选导出 - 导出全部数据
+# 1. No filter export - all data
 Invoke-RestMethod -Uri "http://localhost:5173/api/export/json" -Headers $headers | ConvertTo-Json -Depth 10 | Out-File all_data.json
 Invoke-RestMethod -Uri "http://localhost:5173/api/export/csv" -Headers $headers | Out-File all_data.csv
 
-# 2. 按稿件筛选导出 - manuscriptId=2
+# 2. Filter by manuscriptId=2
 Invoke-RestMethod -Uri "http://localhost:5173/api/export/json?manuscriptId=2" -Headers $headers | ConvertTo-Json -Depth 10 | Out-File manuscript_2.json
+Invoke-RestMethod -Uri "http://localhost:5173/api/export/csv?manuscriptId=2" -Headers $headers | Out-File manuscript_2.csv
 
-# 3. 按日期范围筛选导出
+# 3. Filter by date range
 Invoke-RestMethod -Uri "http://localhost:5173/api/export/json?dateFrom=2024-01-16&dateTo=2024-01-17" -Headers $headers | ConvertTo-Json -Depth 10 | Out-File date_range.json
+Invoke-RestMethod -Uri "http://localhost:5173/api/export/csv?dateFrom=2024-01-16&dateTo=2024-01-17" -Headers $headers | Out-File date_range.csv
 ```
 
 **验证结果：**
