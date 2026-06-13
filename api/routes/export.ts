@@ -6,10 +6,12 @@ import { authMiddleware, roleMiddleware } from '../middleware/auth.js';
 const router = Router();
 
 router.get('/json', authMiddleware, roleMiddleware(['admin']), (req: AuthRequest, res: Response): void => {
-  const { manuscriptId, dateFrom, dateTo } = req.query as {
+  const { manuscriptId, dateFrom, dateTo, status, type } = req.query as {
     manuscriptId?: string;
     dateFrom?: string;
     dateTo?: string;
+    status?: string;
+    type?: string;
   };
 
   let manuscripts = db.manuscripts.findAll();
@@ -36,6 +38,20 @@ router.get('/json', authMiddleware, roleMiddleware(['admin']), (req: AuthRequest
     history = history.filter(h => new Date(h.createdAt) <= toDate);
   }
 
+  if (status) {
+    const statusList = status.split(',').map(s => s.trim());
+    corrections = corrections.filter(c => statusList.includes(c.status));
+    const correctionIds = corrections.map(c => c.id);
+    history = history.filter(h => correctionIds.includes(h.correctionId));
+  }
+
+  if (type) {
+    const typeList = type.split(',').map(t => t.trim());
+    corrections = corrections.filter(c => typeList.includes(c.type));
+    const correctionIds = corrections.map(c => c.id);
+    history = history.filter(h => correctionIds.includes(h.correctionId));
+  }
+
   const data = {
     exportTime: getCurrentTimestamp(),
     exportedBy: req.user?.displayName,
@@ -43,6 +59,8 @@ router.get('/json', authMiddleware, roleMiddleware(['admin']), (req: AuthRequest
       manuscriptId: manuscriptId || null,
       dateFrom: dateFrom || null,
       dateTo: dateTo || null,
+      status: status ? status.split(',') : null,
+      type: type ? type.split(',') : null,
     },
     manuscripts,
     corrections,
@@ -56,14 +74,15 @@ router.get('/json', authMiddleware, roleMiddleware(['admin']), (req: AuthRequest
 });
 
 router.get('/csv', authMiddleware, roleMiddleware(['admin']), (req: AuthRequest, res: Response): void => {
-  const { manuscriptId, dateFrom, dateTo } = req.query as {
+  const { manuscriptId, dateFrom, dateTo, status, type } = req.query as {
     manuscriptId?: string;
     dateFrom?: string;
     dateTo?: string;
+    status?: string;
+    type?: string;
   };
 
   let corrections = db.corrections.findAll();
-  const manuscripts = db.manuscripts.findAll();
 
   if (manuscriptId) {
     corrections = corrections.filter(c => c.manuscriptId === manuscriptId);
@@ -78,6 +97,16 @@ router.get('/csv', authMiddleware, roleMiddleware(['admin']), (req: AuthRequest,
     const toDate = new Date(dateTo);
     toDate.setHours(23, 59, 59, 999);
     corrections = corrections.filter(c => new Date(c.createdAt) <= toDate);
+  }
+
+  if (status) {
+    const statusList = status.split(',').map(s => s.trim());
+    corrections = corrections.filter(c => statusList.includes(c.status));
+  }
+
+  if (type) {
+    const typeList = type.split(',').map(t => t.trim());
+    corrections = corrections.filter(c => typeList.includes(c.type));
   }
 
   const statusMap: Record<string, string> = {
@@ -122,6 +151,8 @@ router.get('/csv', authMiddleware, roleMiddleware(['admin']), (req: AuthRequest,
         manuscriptId: manuscriptId || null,
         dateFrom: dateFrom || null,
         dateTo: dateTo || null,
+        status: status ? status.split(',') : null,
+        type: type ? type.split(',') : null,
       },
     });
     return;
@@ -143,6 +174,8 @@ router.get('/csv', authMiddleware, roleMiddleware(['admin']), (req: AuthRequest,
   const filterParts: string[] = [];
   if (manuscriptId) filterParts.push(`manuscript_${manuscriptId}`);
   if (dateFrom || dateTo) filterParts.push(`${dateFrom || 'start'}_to_${dateTo || 'end'}`);
+  if (status) filterParts.push(`status_${status.replace(',', '-')}`);
+  if (type) filterParts.push(`type_${type.replace(',', '-')}`);
   const filterSuffix = filterParts.length > 0 ? `_${filterParts.join('_')}` : '';
 
   res.setHeader('Content-Type', 'text/csv;charset=utf-8');

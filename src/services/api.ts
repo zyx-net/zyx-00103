@@ -194,19 +194,23 @@ export const api = {
   },
 
   export: {
-    json: (params?: { manuscriptId?: string; dateFrom?: string; dateTo?: string }) => {
+    json: (params?: { manuscriptId?: string; dateFrom?: string; dateTo?: string; status?: string; type?: string }) => {
       const query = new URLSearchParams();
       if (params?.manuscriptId) query.append('manuscriptId', params.manuscriptId);
       if (params?.dateFrom) query.append('dateFrom', params.dateFrom);
       if (params?.dateTo) query.append('dateTo', params.dateTo);
+      if (params?.status) query.append('status', params.status);
+      if (params?.type) query.append('type', params.type);
       const queryStr = query.toString();
       return `${API_BASE}/export/json${queryStr ? `?${queryStr}` : ''}`;
     },
-    csv: (params?: { manuscriptId?: string; dateFrom?: string; dateTo?: string }) => {
+    csv: (params?: { manuscriptId?: string; dateFrom?: string; dateTo?: string; status?: string; type?: string }) => {
       const query = new URLSearchParams();
       if (params?.manuscriptId) query.append('manuscriptId', params.manuscriptId);
       if (params?.dateFrom) query.append('dateFrom', params.dateFrom);
       if (params?.dateTo) query.append('dateTo', params.dateTo);
+      if (params?.status) query.append('status', params.status);
+      if (params?.type) query.append('type', params.type);
       const queryStr = query.toString();
       return `${API_BASE}/export/csv${queryStr ? `?${queryStr}` : ''}`;
     },

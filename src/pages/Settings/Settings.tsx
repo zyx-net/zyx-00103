@@ -20,6 +20,7 @@ export default function Settings() {
   const [filterDateFrom, setFilterDateFrom] = useState('');
   const [filterDateTo, setFilterDateTo] = useState('');
   const [filterStatus, setFilterStatus] = useState<string[]>([]);
+  const [filterType, setFilterType] = useState<string[]>([]);
 
   useEffect(() => {
     fetchConfigs();
@@ -43,6 +44,7 @@ export default function Settings() {
       };
     }
     if (filterStatus.length > 0) filters.status = filterStatus;
+    if (filterType.length > 0) filters.type = filterType;
     return filters;
   };
 
@@ -51,6 +53,7 @@ export default function Settings() {
     setFilterDateFrom(filters.dateRange?.start || '');
     setFilterDateTo(filters.dateRange?.end || '');
     setFilterStatus(filters.status || []);
+    setFilterType(filters.type || []);
   };
 
   const handleCreateConfig = async () => {
@@ -96,10 +99,12 @@ export default function Settings() {
     setExportLoading(true);
     setError(null);
 
-    const params: { manuscriptId?: string; dateFrom?: string; dateTo?: string } = {};
+    const params: { manuscriptId?: string; dateFrom?: string; dateTo?: string; status?: string; type?: string } = {};
     if (filterManuscriptId) params.manuscriptId = filterManuscriptId;
     if (filterDateFrom) params.dateFrom = filterDateFrom;
     if (filterDateTo) params.dateTo = filterDateTo;
+    if (filterStatus.length > 0) params.status = filterStatus.join(',');
+    if (filterType.length > 0) params.type = filterType.join(',');
 
     try {
       if (type === 'json') {
@@ -143,9 +148,10 @@ export default function Settings() {
     setFilterDateFrom('');
     setFilterDateTo('');
     setFilterStatus([]);
+    setFilterType([]);
   };
 
-  const hasFilters = filterManuscriptId || filterDateFrom || filterDateTo || filterStatus.length > 0;
+  const hasFilters = filterManuscriptId || filterDateFrom || filterDateTo || filterStatus.length > 0 || filterType.length > 0;
 
   const getFilterPreview = (filters: FilterConfig['filters']) => {
     const parts: string[] = [];
@@ -170,6 +176,16 @@ export default function Settings() {
         rejected: '已退回',
       };
       parts.push(`状态: ${filters.status.map(s => statusNames[s] || s).join(', ')}`);
+    }
+    if (filters.type && filters.type.length > 0) {
+      const typeNames: Record<string, string> = {
+        factual_error: '事实错误',
+        title_error: '标题错误',
+        source_correction: '来源更正',
+        content_addition: '内容补充',
+        other: '其他',
+      };
+      parts.push(`类型: ${filters.type.map(t => typeNames[t] || t).join(', ')}`);
     }
     return parts.length > 0 ? parts.join(' | ') : '无筛选条件';
   };
@@ -295,6 +311,37 @@ export default function Settings() {
             </div>
           </div>
 
+          <div>
+            <label className="block text-xs text-gray-500 mb-2">按类型筛选</label>
+            <div className="flex flex-wrap gap-2">
+              {[
+                { value: 'factual_error', label: '事实错误' },
+                { value: 'title_error', label: '标题错误' },
+                { value: 'source_correction', label: '来源更正' },
+                { value: 'content_addition', label: '内容补充' },
+                { value: 'other', label: '其他' },
+              ].map((type) => (
+                <button
+                  key={type.value}
+                  onClick={() => {
+                    setFilterType(prev =>
+                      prev.includes(type.value)
+                        ? prev.filter(t => t !== type.value)
+                        : [...prev, type.value]
+                    );
+                  }}
+                  className={`px-3 py-1 text-xs rounded-full border transition-colors ${
+                    filterType.includes(type.value)
+                      ? 'bg-orange-500/20 border-orange-500 text-orange-400'
+                      : 'bg-gray-800 border-gray-700 text-gray-400 hover:border-gray-600'
+                  }`}
+                >
+                  {type.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
           {hasFilters && (
             <div className="text-xs text-gray-500 pt-2 border-t border-gray-700">
               当前筛选：
@@ -316,6 +363,11 @@ export default function Settings() {
               {filterStatus.length > 0 && (
                 <span className="ml-2 px-2 py-0.5 bg-purple-500/10 text-purple-400 rounded">
                   状态: {filterStatus.length}项
+                </span>
+              )}
+              {filterType.length > 0 && (
+                <span className="ml-2 px-2 py-0.5 bg-yellow-500/10 text-yellow-400 rounded">
+                  类型: {filterType.length}项
                 </span>
               )}
             </div>
@@ -450,6 +502,9 @@ export default function Settings() {
                     )}
                     {filterStatus.length > 0 && (
                       <p>• 状态: {filterStatus.join(', ')}</p>
+                    )}
+                    {filterType.length > 0 && (
+                      <p>• 类型: {filterType.join(', ')}</p>
                     )}
                   </div>
                 </div>

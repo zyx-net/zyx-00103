@@ -126,12 +126,14 @@ npm run dev
 #### 11.1 用户界面验证
 - [ ] 以管理员身份登录
 - [ ] 进入"配置管理"页面
-- [ ] 看到筛选条件区域（稿件选择、开始日期、结束日期）
+- [ ] 看到筛选条件区域（稿件选择、开始日期、结束日期、状态多选、类型多选）
 - [ ] 选择稿件"新能源汽车销量创新高"
+- [ ] 选择状态"待编辑复核"、"待法务确认"
+- [ ] 选择类型"事实错误"、"标题错误"
 - [ ] 点击"导出 JSON"按钮
-- [ ] 下载的 JSON 文件只包含该稿件的更正单
+- [ ] 下载的 JSON 文件只包含指定稿件、状态、类型的更正单
 - [ ] 点击"导出 CSV"按钮
-- [ ] 下载的 CSV 文件只包含该稿件的更正单
+- [ ] 下载的 CSV 文件只包含指定稿件、状态、类型的更正单
 - [ ] 清除筛选后导出，包含所有数据
 
 #### 11.2 API 接口验证（curl 命令）
@@ -152,6 +154,18 @@ curl -H "Authorization: Bearer $TOKEN" "http://localhost:5173/api/export/csv?man
 # 3. 按日期范围筛选导出
 curl -H "Authorization: Bearer $TOKEN" "http://localhost:5173/api/export/json?dateFrom=2024-01-16&dateTo=2024-01-17" -o date_range.json
 curl -H "Authorization: Bearer $TOKEN" "http://localhost:5173/api/export/csv?dateFrom=2024-01-16&dateTo=2024-01-17" -o date_range.csv
+
+# 4. 按状态筛选导出 - status 支持多值逗号分隔
+curl -H "Authorization: Bearer $TOKEN" "http://localhost:5173/api/export/json?status=pending_editor,pending_legal" -o pending_status.json
+curl -H "Authorization: Bearer $TOKEN" "http://localhost:5173/api/export/csv?status=published" -o published.csv
+
+# 5. 按类型筛选导出 - type 支持多值逗号分隔
+curl -H "Authorization: Bearer $TOKEN" "http://localhost:5173/api/export/json?type=factual_error,title_error" -o fact_errors.json
+curl -H "Authorization: Bearer $TOKEN" "http://localhost:5173/api/export/csv?type=source_correction" -o source_corrections.csv
+
+# 6. 组合筛选 - 同时指定多个筛选条件
+curl -H "Authorization: Bearer $TOKEN" "http://localhost:5173/api/export/json?status=published&type=factual_error" -o combined.json
+curl -H "Authorization: Bearer $TOKEN" "http://localhost:5173/api/export/csv?manuscriptId=1&status=pending_editor,pending_legal" -o combined.csv
 ```
 
 **Windows (PowerShell):**
@@ -186,6 +200,17 @@ python tests/test_export.py
 # - manuscriptId=2 筛选导出
 # - 日期范围筛选导出
 # - 无筛选导出
+# - JSON 和 CSV 字段一致性
+
+# 运行状态和类型筛选导出验证脚本
+python tests/test_export_filter.py
+
+# 测试覆盖：
+# - 状态筛选导出
+# - 类型筛选导出
+# - 组合状态和类型筛选
+# - 多状态筛选（逗号分隔）
+# - 带筛选的配置预设保存和导出
 # - JSON 和 CSV 字段一致性
 ```
 
