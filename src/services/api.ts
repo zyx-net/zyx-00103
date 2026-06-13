@@ -108,6 +108,7 @@ export interface FilterConfig {
   };
   createdBy: string;
   createdAt: string;
+  updatedAt?: string;
 }
 
 export const api = {
@@ -216,6 +217,11 @@ export const api = {
     create: (data: Partial<FilterConfig>) =>
       request<FilterConfig>('/configs', {
         method: 'POST',
+        body: JSON.stringify(data),
+      }),
+    update: (id: string, data: Partial<FilterConfig>) =>
+      request<FilterConfig>(`/configs/${id}`, {
+        method: 'PUT',
         body: JSON.stringify(data),
       }),
     delete: (id: string) =>

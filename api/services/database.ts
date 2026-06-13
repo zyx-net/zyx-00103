@@ -68,6 +68,7 @@ export interface FilterConfig {
   };
   createdBy: string;
   createdAt: string;
+  updatedAt?: string;
 }
 
 function readJsonFile<T>(filename: string): T[] {
@@ -165,11 +166,20 @@ export const db = {
   configs: {
     findAll: (): FilterConfig[] => readJsonFile<FilterConfig>('configs.json'),
     findById: (id: string): FilterConfig | undefined => readJsonFile<FilterConfig>('configs.json').find(c => c.id === id),
+    findByCreatorId: (creatorId: string): FilterConfig[] => readJsonFile<FilterConfig>('configs.json').filter(c => c.createdBy === creatorId),
     create: (config: FilterConfig): FilterConfig => {
       const configs = readJsonFile<FilterConfig>('configs.json');
       configs.push(config);
       writeJsonFile('configs.json', configs);
       return config;
+    },
+    update: (id: string, updates: Partial<FilterConfig>): FilterConfig | undefined => {
+      const configs = readJsonFile<FilterConfig>('configs.json');
+      const index = configs.findIndex(c => c.id === id);
+      if (index === -1) return undefined;
+      configs[index] = { ...configs[index], ...updates };
+      writeJsonFile('configs.json', configs);
+      return configs[index];
     },
     delete: (id: string): boolean => {
       const configs = readJsonFile<FilterConfig>('configs.json');
