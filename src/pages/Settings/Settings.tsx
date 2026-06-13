@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react';
 import { useAuthStore } from '../../stores/authStore';
-import { api, FilterConfig } from '../../services/api';
-import { Download, FileJson, FileSpreadsheet, Plus, Trash2, AlertCircle } from 'lucide-react';
+import { useDataStore } from '../../stores/dataStore';
+import { api, FilterConfig, Manuscript } from '../../services/api';
+import { Download, FileJson, FileSpreadsheet, Plus, Trash2, AlertCircle, Filter } from 'lucide-react';
 
 export default function Settings() {
   const { user } = useAuthStore();
+  const { manuscripts, fetchManuscripts } = useDataStore();
   const [configs, setConfigs] = useState<FilterConfig[]>([]);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newName, setNewName] = useState('');
@@ -12,8 +14,13 @@ export default function Settings() {
   const [error, setError] = useState<string | null>(null);
   const [exportLoading, setExportLoading] = useState(false);
 
+  const [filterManuscriptId, setFilterManuscriptId] = useState('');
+  const [filterDateFrom, setFilterDateFrom] = useState('');
+  const [filterDateTo, setFilterDateTo] = useState('');
+
   useEffect(() => {
     fetchConfigs();
+    fetchManuscripts();
   }, []);
 
   const fetchConfigs = async () => {
@@ -50,17 +57,29 @@ export default function Settings() {
     setExportLoading(true);
     setError(null);
 
+    const params: { manuscriptId?: string; dateFrom?: string; dateTo?: string } = {};
+    if (filterManuscriptId) params.manuscriptId = filterManuscriptId;
+    if (filterDateFrom) params.dateFrom = filterDateFrom;
+    if (filterDateTo) params.dateTo = filterDateTo;
+
     try {
       if (type === 'json') {
         const token = localStorage.getItem('token');
-        const response = await fetch(`${api.export.json()}`, {
+        const response = await fetch(api.export.json(params), {
           headers: { Authorization: `Bearer ${token}` },
         });
         const data = await response.json();
         const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
         downloadBlob(blob, `corrections_export_${new Date().toISOString().split('T')[0]}.json`);
       } else {
-        window.open(api.export.csv(), '_blank');
+        const token = localStorage.getItem('token');
+        const url = api.export.csv(params);
+        const response = await fetch(url, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const text = await response.text();
+        const blob = new Blob([text], { type: 'text/csv;charset=utf-8' });
+        downloadBlob(blob, `corrections_export_${new Date().toISOString().split('T')[0]}.csv`);
       }
     } catch (err) {
       setError('导出失败');
@@ -79,6 +98,14 @@ export default function Settings() {
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
   };
+
+  const clearFilters = () => {
+    setFilterManuscriptId('');
+    setFilterDateFrom('');
+    setFilterDateTo('');
+  };
+
+  const hasFilters = filterManuscriptId || filterDateFrom || filterDateTo;
 
   if (user?.role !== 'admin') {
     return (
@@ -104,8 +131,81 @@ export default function Settings() {
           <h2 className="text-lg font-semibold">数据导出</h2>
         </div>
         <p className="text-gray-400 text-sm mb-4">
-          导出的数据包含所有稿件、更正单和操作历史记录
+          可按稿件或日期范围筛选导出数据，不设置筛选条件则导出全部数据
         </p>
+
+        <div className="bg-gray-800/50 rounded-lg p-4 mb-4 space-y-4">
+          <div className="flex items-center gap-2 text-sm text-gray-400 mb-2">
+            <Filter size={16} />
+            <span>筛选条件</span>
+            {hasFilters && (
+              <button
+                onClick={clearFilters}
+                className="ml-auto text-orange-400 hover:text-orange-300 text-xs"
+              >
+                清除筛选
+              </button>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">按稿件筛选</label>
+              <select
+                value={filterManuscriptId}
+                onChange={(e) => setFilterManuscriptId(e.target.value)}
+                className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:border-orange-500 text-sm"
+              >
+                <option value="">全部稿件</option>
+                {manuscripts.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.title}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">开始日期</label>
+              <input
+                type="date"
+                value={filterDateFrom}
+                onChange={(e) => setFilterDateFrom(e.target.value)}
+                className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:border-orange-500 text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">结束日期</label>
+              <input
+                type="date"
+                value={filterDateTo}
+                onChange={(e) => setFilterDateTo(e.target.value)}
+                className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:border-orange-500 text-sm"
+              />
+            </div>
+          </div>
+
+          {hasFilters && (
+            <div className="text-xs text-gray-500 pt-2 border-t border-gray-700">
+              当前筛选：
+              {filterManuscriptId && (
+                <span className="ml-2 px-2 py-0.5 bg-blue-500/10 text-blue-400 rounded">
+                  稿件: {manuscripts.find(m => m.id === filterManuscriptId)?.title || filterManuscriptId}
+                </span>
+              )}
+              {filterDateFrom && (
+                <span className="ml-2 px-2 py-0.5 bg-green-500/10 text-green-400 rounded">
+                  从: {filterDateFrom}
+                </span>
+              )}
+              {filterDateTo && (
+                <span className="ml-2 px-2 py-0.5 bg-green-500/10 text-green-400 rounded">
+                  到: {filterDateTo}
+                </span>
+              )}
+            </div>
+          )}
+        </div>
+
         <div className="flex gap-4">
           <button
             onClick={() => handleExport('json')}

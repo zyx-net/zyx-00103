@@ -193,8 +193,22 @@ export const api = {
   },
 
   export: {
-    json: () => `${API_BASE}/export/json`,
-    csv: () => `${API_BASE}/export/csv`,
+    json: (params?: { manuscriptId?: string; dateFrom?: string; dateTo?: string }) => {
+      const query = new URLSearchParams();
+      if (params?.manuscriptId) query.append('manuscriptId', params.manuscriptId);
+      if (params?.dateFrom) query.append('dateFrom', params.dateFrom);
+      if (params?.dateTo) query.append('dateTo', params.dateTo);
+      const queryStr = query.toString();
+      return `${API_BASE}/export/json${queryStr ? `?${queryStr}` : ''}`;
+    },
+    csv: (params?: { manuscriptId?: string; dateFrom?: string; dateTo?: string }) => {
+      const query = new URLSearchParams();
+      if (params?.manuscriptId) query.append('manuscriptId', params.manuscriptId);
+      if (params?.dateFrom) query.append('dateFrom', params.dateFrom);
+      if (params?.dateTo) query.append('dateTo', params.dateTo);
+      const queryStr = query.toString();
+      return `${API_BASE}/export/csv${queryStr ? `?${queryStr}` : ''}`;
+    },
   },
 
   configs: {

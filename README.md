@@ -122,11 +122,70 @@ npm run dev
 - [ ] 筛选配置仍存在
 
 ### 11. 导出功能验证（需要管理员账号）
+
+#### 11.1 用户界面验证
+- [ ] 以管理员身份登录
 - [ ] 进入"配置管理"页面
+- [ ] 看到筛选条件区域（稿件选择、开始日期、结束日期）
+- [ ] 选择稿件"新能源汽车销量创新高"
 - [ ] 点击"导出 JSON"按钮
-- [ ] 下载包含所有数据的 JSON 文件
+- [ ] 下载的 JSON 文件只包含该稿件的更正单
 - [ ] 点击"导出 CSV"按钮
-- [ ] 下载更正单 CSV 表格
+- [ ] 下载的 CSV 文件只包含该稿件的更正单
+- [ ] 清除筛选后导出，包含所有数据
+
+#### 11.2 API 接口验证（curl 命令）
+
+**Linux/macOS (bash):**
+```bash
+# 设置管理员 Token（用户ID）
+TOKEN="4"
+
+# 1. 无筛选导出 - 导出全部数据
+curl -H "Authorization: Bearer $TOKEN" "http://localhost:5173/api/export/json" -o all_data.json
+curl -H "Authorization: Bearer $TOKEN" "http://localhost:5173/api/export/csv" -o all_data.csv
+
+# 2. 按稿件筛选导出 - manuscriptId=2（新能源汽车销量创新高）
+curl -H "Authorization: Bearer $TOKEN" "http://localhost:5173/api/export/json?manuscriptId=2" -o manuscript_2.json
+curl -H "Authorization: Bearer $TOKEN" "http://localhost:5173/api/export/csv?manuscriptId=2" -o manuscript_2.csv
+
+# 3. 按日期范围筛选导出
+curl -H "Authorization: Bearer $TOKEN" "http://localhost:5173/api/export/json?dateFrom=2024-01-16&dateTo=2024-01-17" -o date_range.json
+curl -H "Authorization: Bearer $TOKEN" "http://localhost:5173/api/export/csv?dateFrom=2024-01-16&dateTo=2024-01-17" -o date_range.csv
+```
+
+**Windows (PowerShell):**
+```powershell
+# 设置管理员 Token
+$headers = @{ "Authorization" = "Bearer 4" }
+
+# 1. 无筛选导出 - 导出全部数据
+Invoke-RestMethod -Uri "http://localhost:5173/api/export/json" -Headers $headers | ConvertTo-Json -Depth 10 | Out-File all_data.json
+Invoke-RestMethod -Uri "http://localhost:5173/api/export/csv" -Headers $headers | Out-File all_data.csv
+
+# 2. 按稿件筛选导出 - manuscriptId=2
+Invoke-RestMethod -Uri "http://localhost:5173/api/export/json?manuscriptId=2" -Headers $headers | ConvertTo-Json -Depth 10 | Out-File manuscript_2.json
+
+# 3. 按日期范围筛选导出
+Invoke-RestMethod -Uri "http://localhost:5173/api/export/json?dateFrom=2024-01-16&dateTo=2024-01-17" -Headers $headers | ConvertTo-Json -Depth 10 | Out-File date_range.json
+```
+
+**验证结果：**
+- all_data.json 应包含 2 条更正单、3 篇稿件
+- manuscript_2.json 应只包含稿件ID=2 的更正单（1条）
+- date_range.json 应只包含指定日期范围内的更正单
+
+#### 11.3 自动化测试脚本
+```bash
+# 运行导出功能验证脚本
+python tests/test_export.py
+
+# 测试覆盖：
+# - manuscriptId=2 筛选导出
+# - 日期范围筛选导出
+# - 无筛选导出
+# - JSON 和 CSV 字段一致性
+```
 
 ### 12. 历史记录验证
 - [ ] 进入"历史记录"页面
