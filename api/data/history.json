@@ -94,5 +94,29 @@
     "previousStatus": "pending_editor",
     "newStatus": "pending_legal",
     "createdAt": "2024-01-22T11:00:00.000Z"
+  },
+  {
+    "id": "mqd7swiorsq4q4mg5",
+    "correctionId": "mqd7swinw7pul5o0bk9",
+    "action": "create",
+    "operatorId": "1",
+    "operatorName": "张记者",
+    "operatorRole": "journalist",
+    "comment": "创建更正单",
+    "previousStatus": "",
+    "newStatus": "draft",
+    "createdAt": "2026-06-14T03:18:36.959Z"
+  },
+  {
+    "id": "mqd7swj4nu0spb1mpnc",
+    "correctionId": "mqd7swinw7pul5o0bk9",
+    "action": "submit",
+    "operatorId": "1",
+    "operatorName": "张记者",
+    "operatorRole": "journalist",
+    "comment": "提交更正单",
+    "previousStatus": "draft",
+    "newStatus": "pending_editor",
+    "createdAt": "2026-06-14T03:18:36.975Z"
   }
 ]

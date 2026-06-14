@@ -30,5 +30,21 @@
     "currentHandlerId": "3",
     "createdAt": "2024-01-21T09:00:00.000Z",
     "updatedAt": "2024-01-22T11:00:00.000Z"
+  },
+  {
+    "id": "mqd7swinw7pul5o0bk9",
+    "manuscriptId": "2",
+    "manuscriptTitle": "新能源汽车销量创新高",
+    "type": "factual_error",
+    "evidence": "reviewer batch route evidence",
+    "deadline": "2026-12-31",
+    "impactScope": "reviewer route check",
+    "hasSourceDispute": false,
+    "status": "pending_editor",
+    "creatorId": "1",
+    "creatorName": "张记者",
+    "currentHandlerId": "2",
+    "createdAt": "2026-06-14T03:18:36.959Z",
+    "updatedAt": "2026-06-14T03:18:36.975Z"
   }
 ]

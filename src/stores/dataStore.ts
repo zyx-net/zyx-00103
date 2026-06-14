@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { api, Manuscript, Correction, HistoryRecord } from '../services/api';
+import { api, Manuscript, Correction, HistoryRecord, BatchOperationResponse } from '../services/api';
 
 interface DataState {
   manuscripts: Manuscript[];
@@ -21,6 +21,10 @@ interface DataState {
   legalConfirmCorrection: (id: string, action: 'confirm' | 'reject', comment?: string) => Promise<boolean>;
   publishCorrection: (id: string, comment?: string) => Promise<boolean>;
   revokeCorrection: (id: string, comment?: string) => Promise<boolean>;
+  batchReviewCorrections: (ids: string[], action: 'pass' | 'reject', comment?: string) => Promise<BatchOperationResponse | null>;
+  batchLegalCorrections: (ids: string[], action: 'confirm' | 'reject', comment?: string) => Promise<BatchOperationResponse | null>;
+  batchPublishCorrections: (ids: string[], comment?: string) => Promise<BatchOperationResponse | null>;
+  batchRevokeCorrections: (ids: string[], comment?: string) => Promise<BatchOperationResponse | null>;
 }
 
 export const useDataStore = create<DataState>((set, get) => ({
@@ -208,6 +212,58 @@ export const useDataStore = create<DataState>((set, get) => ({
     } else {
       set({ error: response.error?.message || '撤销失败', isLoading: false });
       return false;
+    }
+  },
+
+  batchReviewCorrections: async (ids, action, comment) => {
+    set({ isLoading: true, error: null });
+    const response = await api.corrections.batchReview(ids, action, comment);
+    if (response.success && response.data) {
+      await get().fetchCorrections();
+      set({ isLoading: false });
+      return response.data as BatchOperationResponse;
+    } else {
+      set({ error: response.error?.message || '批量复核失败', isLoading: false });
+      return null;
+    }
+  },
+
+  batchLegalCorrections: async (ids, action, comment) => {
+    set({ isLoading: true, error: null });
+    const response = await api.corrections.batchLegal(ids, action, comment);
+    if (response.success && response.data) {
+      await get().fetchCorrections();
+      set({ isLoading: false });
+      return response.data as BatchOperationResponse;
+    } else {
+      set({ error: response.error?.message || '批量法务确认失败', isLoading: false });
+      return null;
+    }
+  },
+
+  batchPublishCorrections: async (ids, comment) => {
+    set({ isLoading: true, error: null });
+    const response = await api.corrections.batchPublish(ids, comment);
+    if (response.success && response.data) {
+      await get().fetchCorrections();
+      set({ isLoading: false });
+      return response.data as BatchOperationResponse;
+    } else {
+      set({ error: response.error?.message || '批量发布失败', isLoading: false });
+      return null;
+    }
+  },
+
+  batchRevokeCorrections: async (ids, comment) => {
+    set({ isLoading: true, error: null });
+    const response = await api.corrections.batchRevoke(ids, comment);
+    if (response.success && response.data) {
+      await get().fetchCorrections();
+      set({ isLoading: false });
+      return response.data as BatchOperationResponse;
+    } else {
+      set({ error: response.error?.message || '批量撤销失败', isLoading: false });
+      return null;
     }
   },
 }));

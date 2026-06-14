@@ -97,6 +97,24 @@ export interface HistoryRecord {
   createdAt: string;
 }
 
+export interface BatchResultItem {
+  id: string;
+  success: boolean;
+  message: string;
+  reason?: string;
+}
+
+export interface BatchOperationResponse {
+  success: boolean;
+  data: BatchResultItem[];
+  summary: {
+    total: number;
+    success: number;
+    skipped: number;
+    failed: number;
+  };
+}
+
 export interface FilterConfig {
   id: string;
   name: string;
@@ -178,6 +196,26 @@ export const api = {
       request<Correction>(`/corrections/${id}/revoke`, {
         method: 'POST',
         body: JSON.stringify({ comment }),
+      }),
+    batchReview: (ids: string[], action: 'pass' | 'reject', comment?: string) =>
+      request<BatchOperationResponse>('/corrections/batch/review', {
+        method: 'POST',
+        body: JSON.stringify({ ids, action, comment }),
+      }),
+    batchLegal: (ids: string[], action: 'confirm' | 'reject', comment?: string) =>
+      request<BatchOperationResponse>('/corrections/batch/legal', {
+        method: 'POST',
+        body: JSON.stringify({ ids, action, comment }),
+      }),
+    batchPublish: (ids: string[], comment?: string) =>
+      request<BatchOperationResponse>('/corrections/batch/publish', {
+        method: 'POST',
+        body: JSON.stringify({ ids, comment }),
+      }),
+    batchRevoke: (ids: string[], comment?: string) =>
+      request<BatchOperationResponse>('/corrections/batch/revoke', {
+        method: 'POST',
+        body: JSON.stringify({ ids, comment }),
       }),
   },
 
