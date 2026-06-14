@@ -15,6 +15,7 @@ import json
 import csv
 import io
 import sys
+import time
 from typing import Dict, List, Any, Tuple
 
 BASE_URL = "http://localhost:5173/api"
@@ -236,7 +237,7 @@ def test_case_config_preset_with_status():
     headers = {"Authorization": f"Bearer {ADMIN_TOKEN}"}
     
     preset_config = {
-        "name": f"状态筛选测试_{int(sys.time())}",
+        "name": f"状态筛选测试_{int(time.time())}",
         "filters": {
             "status": ["pending_editor", "pending_legal"]
         }
@@ -280,7 +281,7 @@ def test_case_config_preset_with_type():
     headers = {"Authorization": f"Bearer {ADMIN_TOKEN}"}
     
     preset_config = {
-        "name": f"类型筛选测试_{int(sys.time())}",
+        "name": f"类型筛选测试_{int(time.time())}",
         "filters": {
             "type": ["factual_error", "title_error"]
         }
@@ -331,7 +332,8 @@ def test_json_csv_field_consistency():
         return False
     
     json_corrections = json_result.get("data", {}).get("corrections", [])
-    csv_rows = parse_csv(csv_text)
+    csv_text_clean = csv_text.lstrip('\ufeff').lstrip('\ufeff\n')
+    csv_rows = parse_csv(csv_text_clean)
     
     if len(json_corrections) == 0 and len(csv_rows) == 0:
         print_result("Data consistency (empty data)", True)
@@ -402,9 +404,6 @@ def cleanup_test_configs():
         pass
 
 def main():
-    import time
-    sys.time = time
-    
     print("="*60)
     print(" Export Filter Validation Script (Status & Type)")
     print("="*60)
