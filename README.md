@@ -386,7 +386,139 @@ python tests/test_config_preset.py
 - [ ] 尝试勾选已退回的更正单，复选框禁用或显示跳过标记
 - [ ] 如果误选，操作按钮禁用并显示警告提示
 
-### 14. 历史记录验证
+#### 13.9 按操作类型过滤验证
+- [ ] 以编辑身份登录，只能勾选"待编辑复核"状态的更正单
+- [ ] 以法务身份登录，只能勾选"待法务确认"状态的更正单
+- [ ] 以管理员身份登录，选择"待发布"更正单后只能勾选待发布项
+- [ ] 以管理员身份登录，选择"已发布"更正单后只能勾选已发布项（用于批量撤销）
+- [ ] 操作按钮根据当前选中的更正单状态动态显示
+
+### 14. 批量操作 API 接口验证（curl 命令）
+
+#### 14.1 批量复核验证（需要编辑账号）
+```bash
+# Linux/macOS
+curl -X POST "http://localhost:3001/api/corrections/batch/review" \
+  -H "Authorization: Bearer 2" \
+  -H "Content-Type: application/json" \
+  -d '{"ids": ["correction_id_1", "correction_id_2"], "action": "pass", "comment": "批量复核通过"}'
+
+# Windows PowerShell
+Invoke-RestMethod -Uri "http://localhost:3001/api/corrections/batch/review" -Method Post -Headers @{ Authorization = "Bearer 2"; "Content-Type" = "application/json" } -Body '{"ids": ["correction_id_1", "correction_id_2"], "action": "pass", "comment": "批量复核通过"}'
+
+# 预期结果：
+# - 返回 200 状态码（不是 404）
+# - success: true
+# - summary 显示成功/跳过/失败数量
+# - data 数组包含每条更正单的操作结果
+```
+
+#### 14.2 批量法务确认验证（需要法务账号）
+```bash
+# Linux/macOS
+curl -X POST "http://localhost:3001/api/corrections/batch/legal" \
+  -H "Authorization: Bearer 3" \
+  -H "Content-Type: application/json" \
+  -d '{"ids": ["correction_id_1", "correction_id_2"], "action": "confirm", "comment": "批量法务确认"}'
+
+# Windows PowerShell
+Invoke-RestMethod -Uri "http://localhost:3001/api/corrections/batch/legal" -Method Post -Headers @{ Authorization = "Bearer 3"; "Content-Type" = "application/json" } -Body '{"ids": ["correction_id_1", "correction_id_2"], "action": "confirm", "comment": "批量法务确认"}'
+
+# 预期结果：
+# - 返回 200 状态码（不是 404）
+# - success: true
+# - status 变为 "pending_publish"
+```
+
+#### 14.3 批量发布验证（需要管理员账号）
+```bash
+# Linux/macOS
+curl -X POST "http://localhost:3001/api/corrections/batch/publish" \
+  -H "Authorization: Bearer 4" \
+  -H "Content-Type: application/json" \
+  -d '{"ids": ["correction_id_1", "correction_id_2"], "comment": "批量发布"}'
+
+# Windows PowerShell
+Invoke-RestMethod -Uri "http://localhost:3001/api/corrections/batch/publish" -Method Post -Headers @{ Authorization = "Bearer 4"; "Content-Type" = "application/json" } -Body '{"ids": ["correction_id_1", "correction_id_2"], "comment": "批量发布"}'
+
+# 预期结果：
+# - 返回 200 状态码（不是 404）
+# - 成功的更正单 status 变为 "published"
+# - 跳过的更正单显示原因（如"已发布"、"来源争议"等）
+```
+
+#### 14.4 批量撤销验证（需要管理员账号）
+```bash
+# Linux/macOS
+curl -X POST "http://localhost:3001/api/corrections/batch/revoke" \
+  -H "Authorization: Bearer 4" \
+  -H "Content-Type: application/json" \
+  -d '{"ids": ["correction_id_1"], "comment": "批量撤销"}'
+
+# Windows PowerShell
+Invoke-RestMethod -Uri "http://localhost:3001/api/corrections/batch/revoke" -Method Post -Headers @{ Authorization = "Bearer 4"; "Content-Type" = "application/json" } -Body '{"ids": ["correction_id_1"], "comment": "批量撤销"}'
+
+# 预期结果：
+# - 返回 200 状态码（不是 404）
+# - status 变为 "pending_publish"
+```
+
+#### 14.5 权限验证（403 检查）
+```bash
+# 记者尝试批量复核 - 应返回 403
+curl -X POST "http://localhost:3001/api/corrections/batch/review" \
+  -H "Authorization: Bearer 1" \
+  -H "Content-Type: application/json" \
+  -d '{"ids": ["correction_id"], "action": "pass"}'
+
+# 预期：{"success":false,"error":{"code":"FORBIDDEN","message":"记者无权执行此操作"}}
+
+# 编辑尝试批量法务 - 应返回 403
+curl -X POST "http://localhost:3001/api/corrections/batch/legal" \
+  -H "Authorization: Bearer 2" \
+  -H "Content-Type: application/json" \
+  -d '{"ids": ["correction_id"], "action": "confirm"}'
+
+# 预期：{"success":false,"error":{"code":"FORBIDDEN","message":"编辑无权执行此操作"}}
+
+# 编辑尝试批量发布 - 应返回 403
+curl -X POST "http://localhost:3001/api/corrections/batch/publish" \
+  -H "Authorization: Bearer 2" \
+  -H "Content-Type: application/json" \
+  -d '{"ids": ["correction_id"]}'
+
+# 预期：{"success":false,"error":{"code":"FORBIDDEN","message":"编辑无权执行此操作"}}
+
+# 法务尝试批量复核 - 应返回 403
+curl -X POST "http://localhost:3001/api/corrections/batch/review" \
+  -H "Authorization: Bearer 3" \
+  -H "Content-Type: application/json" \
+  -d '{"ids": ["correction_id"], "action": "pass"}'
+
+# 预期：{"success":false,"error":{"code":"FORBIDDEN","message":"法务无权执行此操作"}}
+```
+
+#### 14.6 批量操作历史记录验证
+```bash
+# 查询历史记录
+curl "http://localhost:3001/api/history" -H "Authorization: Bearer 4"
+
+# 预期：批量操作会生成对应的历史记录
+# - review_pass: 批量复核通过
+# - review_reject: 批量退回
+# - legal_confirm: 批量法务确认
+# - legal_reject: 批量法务退回
+# - publish: 批量发布更正
+# - revoke: 批量撤销发布
+```
+
+#### 14.7 批量结果导出验证
+- [ ] 执行批量操作后，结果弹窗显示
+- [ ] 点击"导出 CSV"按钮
+- [ ] 下载 CSV 文件，包含 ID、标题、结果、原因、时间 列
+- [ ] CSV 文件名格式：batch_result_YYYY-MM-DD.csv
+
+### 15. 历史记录验证
 - [ ] 进入"历史记录"页面
 - [ ] 显示所有操作的时间线
 - [ ] 按日期分组显示

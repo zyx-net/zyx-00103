@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
 import { useDataStore } from '../../stores/dataStore';
-import { Plus, Search, AlertCircle, Eye, Edit, CheckSquare, Square, X, Check, AlertTriangle, Loader2 } from 'lucide-react';
+import { Plus, Search, AlertCircle, Eye, Edit, CheckSquare, Square, X, Check, AlertTriangle, Loader2, Download } from 'lucide-react';
 import { BatchResultItem } from '../../services/api';
 
 const statusConfig: Record<string, { label: string; color: string; bg: string }> = {
@@ -82,21 +82,61 @@ export default function Corrections() {
     return filtered;
   }, [corrections, user, statusFilter, search]);
 
-  const selectableCorrections = useMemo(() => {
-    return filteredCorrections.filter(c =>
-      c.status !== 'published' && c.status !== 'rejected'
-    );
-  }, [filteredCorrections]);
-
   const selectedCorrections = useMemo(() => {
     return corrections.filter(c => selectedIds.has(c.id));
   }, [corrections, selectedIds]);
 
+  const selectableCorrections = useMemo(() => {
+    if (!user) return [];
+    
+    if (user.role === 'editor') {
+      return filteredCorrections.filter(c => c.status === 'pending_editor');
+    }
+    
+    if (user.role === 'legal') {
+      return filteredCorrections.filter(c => c.status === 'pending_legal');
+    }
+    
+    if (user.role === 'admin') {
+      const canPublish = selectedIds.size > 0 && corrections.some(c => selectedIds.has(c.id) && c.status === 'pending_publish');
+      const canRevoke = selectedIds.size > 0 && corrections.some(c => selectedIds.has(c.id) && c.status === 'published');
+      if (canPublish) {
+        return filteredCorrections.filter(c => c.status === 'pending_publish');
+      }
+      if (canRevoke) {
+        return filteredCorrections.filter(c => c.status === 'published');
+      }
+      return filteredCorrections.filter(c => c.status === 'pending_publish' || c.status === 'published');
+    }
+    
+    return [];
+  }, [filteredCorrections, user, selectedIds, corrections]);
+
   const hasInvalidSelection = useMemo(() => {
-    return selectedCorrections.some(c =>
-      c.status === 'published' || c.status === 'rejected'
-    );
-  }, [selectedCorrections]);
+    if (!user) return false;
+    
+    if (user.role === 'editor') {
+      return selectedCorrections.some(c => c.status !== 'pending_editor');
+    }
+    
+    if (user.role === 'legal') {
+      return selectedCorrections.some(c => c.status !== 'pending_legal');
+    }
+    
+    if (user.role === 'admin') {
+      const canPublish = selectedCorrections.some(c => c.status === 'pending_publish');
+      const canRevoke = selectedCorrections.some(c => c.status === 'published');
+      if (canPublish) {
+        return selectedCorrections.some(c => c.status !== 'pending_publish');
+      }
+      if (canRevoke) {
+        return selectedCorrections.some(c => c.status !== 'published');
+      }
+      return false;
+    }
+    
+    return false;
+  }, [selectedCorrections, user]);
 
   const getAvailableOperations = () => {
     if (!user) return [];
@@ -260,6 +300,35 @@ export default function Corrections() {
     return null;
   };
 
+  const exportBatchResultToCSV = (result: BatchResult) => {
+    const headers = ['ID', '标题', '结果', '原因', '时间'];
+    const rows = result.items.map(item => {
+      const correction = corrections.find(c => c.id === item.id);
+      return [
+        item.id,
+        correction?.manuscriptTitle || '',
+        item.message,
+        item.reason || '',
+        new Date().toLocaleString('zh-CN'),
+      ];
+    });
+
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+    ].join('\n');
+
+    const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `batch_result_${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   const availableOperations = getAvailableOperations();
   const canSelect = user?.role === 'editor' || user?.role === 'legal' || user?.role === 'admin';
 
@@ -385,7 +454,7 @@ export default function Corrections() {
             ) : (
               filteredCorrections.map((correction) => {
                 const config = statusConfig[correction.status];
-                const isSelectable = correction.status !== 'published' && correction.status !== 'rejected';
+                const isSelectable = selectableCorrections.some(c => c.id === correction.id);
                 const isSelected = selectedIds.has(correction.id);
 
                 return (
@@ -605,7 +674,14 @@ export default function Corrections() {
               })}
             </div>
 
-            <div className="flex justify-end mt-4">
+            <div className="flex justify-end gap-3 mt-4">
+              <button
+                onClick={() => exportBatchResultToCSV(batchResult)}
+                className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg font-medium transition-colors flex items-center gap-2"
+              >
+                <Download size={16} />
+                导出 CSV
+              </button>
               <button
                 onClick={() => {
                   setShowResultModal(false);

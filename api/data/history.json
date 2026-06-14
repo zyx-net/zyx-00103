@@ -96,8 +96,8 @@
     "createdAt": "2024-01-22T11:00:00.000Z"
   },
   {
-    "id": "mqd7swiorsq4q4mg5",
-    "correctionId": "mqd7swinw7pul5o0bk9",
+    "id": "mqd8cwx13aq0lct7nhv",
+    "correctionId": "mqd8cwx08prfjcfrega",
     "action": "create",
     "operatorId": "1",
     "operatorName": "张记者",
@@ -105,18 +105,114 @@
     "comment": "创建更正单",
     "previousStatus": "",
     "newStatus": "draft",
-    "createdAt": "2026-06-14T03:18:36.959Z"
+    "createdAt": "2026-06-14T03:34:10.596Z"
   },
   {
-    "id": "mqd7swj4nu0spb1mpnc",
-    "correctionId": "mqd7swinw7pul5o0bk9",
+    "id": "mqd8dsffifrchn6zeu",
+    "correctionId": "mqd8cwx08prfjcfrega",
     "action": "submit",
     "operatorId": "1",
     "operatorName": "张记者",
     "operatorRole": "journalist",
-    "comment": "提交更正单",
+    "comment": "????",
     "previousStatus": "draft",
     "newStatus": "pending_editor",
-    "createdAt": "2026-06-14T03:18:36.975Z"
+    "createdAt": "2026-06-14T03:34:51.433Z"
+  },
+  {
+    "id": "mqd8el8yih73irm6k4e",
+    "correctionId": "mqd8el8yfeawys1xp46",
+    "action": "create",
+    "operatorId": "1",
+    "operatorName": "张记者",
+    "operatorRole": "journalist",
+    "comment": "创建更正单",
+    "previousStatus": "",
+    "newStatus": "draft",
+    "createdAt": "2026-06-14T03:35:28.785Z"
+  },
+  {
+    "id": "mqd8f8t9uvut5wnd2zp",
+    "correctionId": "mqd8el8yfeawys1xp46",
+    "action": "submit",
+    "operatorId": "1",
+    "operatorName": "张记者",
+    "operatorRole": "journalist",
+    "comment": "????2",
+    "previousStatus": "draft",
+    "newStatus": "pending_editor",
+    "createdAt": "2026-06-14T03:35:59.323Z"
+  },
+  {
+    "id": "mqd8fyidjxgbdlfd7d",
+    "correctionId": "mqd8cwx08prfjcfrega",
+    "action": "review_pass",
+    "operatorId": "2",
+    "operatorName": "李编辑",
+    "operatorRole": "editor",
+    "comment": "??????",
+    "previousStatus": "pending_editor",
+    "newStatus": "pending_legal",
+    "createdAt": "2026-06-14T03:36:32.627Z"
+  },
+  {
+    "id": "mqd8fyifz5cs8uzu5og",
+    "correctionId": "mqd8el8yfeawys1xp46",
+    "action": "review_pass",
+    "operatorId": "2",
+    "operatorName": "李编辑",
+    "operatorRole": "editor",
+    "comment": "??????",
+    "previousStatus": "pending_editor",
+    "newStatus": "pending_legal",
+    "createdAt": "2026-06-14T03:36:32.627Z"
+  },
+  {
+    "id": "mqd8gnqxvm3evra68k",
+    "correctionId": "mqd8cwx08prfjcfrega",
+    "action": "legal_confirm",
+    "operatorId": "3",
+    "operatorName": "王法务",
+    "operatorRole": "legal",
+    "comment": "????????",
+    "previousStatus": "pending_legal",
+    "newStatus": "pending_publish",
+    "createdAt": "2026-06-14T03:37:05.335Z"
+  },
+  {
+    "id": "mqd8gnqyq28dbqmvhk",
+    "correctionId": "mqd8el8yfeawys1xp46",
+    "action": "legal_confirm",
+    "operatorId": "3",
+    "operatorName": "王法务",
+    "operatorRole": "legal",
+    "comment": "????????",
+    "previousStatus": "pending_legal",
+    "newStatus": "pending_publish",
+    "createdAt": "2026-06-14T03:37:05.335Z"
+  },
+  {
+    "id": "mqd8gw3vvzvly5pgs",
+    "correctionId": "mqd8cwx08prfjcfrega",
+    "action": "publish",
+    "operatorId": "4",
+    "operatorName": "赵管理员",
+    "operatorRole": "admin",
+    "comment": "??????",
+    "previousStatus": "pending_publish",
+    "newStatus": "published",
+    "createdAt": "2026-06-14T03:37:16.168Z"
+  },
+  {
+    "id": "mqd8ievu97vtkonhfm",
+    "correctionId": "mqd8cwx08prfjcfrega",
+    "action": "revoke",
+    "operatorId": "4",
+    "operatorName": "赵管理员",
+    "operatorRole": "admin",
+    "comment": "??????",
+    "previousStatus": "published",
+    "newStatus": "pending_publish",
+    "createdAt": "2026-06-14T03:38:27.160Z"
   }
 ]

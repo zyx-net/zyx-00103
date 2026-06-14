@@ -1,6 +1,6 @@
 import { Router, type Response } from 'express';
 import { db, generateId, getCurrentTimestamp, type Correction, type HistoryRecord } from '../services/database.js';
-import { AuthRequest, validateRole, validateCorrectionForSubmit, validateNoDuplicatePublish } from '../services/validation.js';
+import { AuthRequest, validateCorrectionForSubmit, validateNoDuplicatePublish } from '../services/validation.js';
 import { authMiddleware, roleMiddleware } from '../middleware/auth.js';
 
 const router = Router();
@@ -32,43 +32,6 @@ router.get('/', authMiddleware, (req: AuthRequest, res: Response): void => {
   res.json({
     success: true,
     data: filteredCorrections,
-  });
-});
-
-router.get('/:id', authMiddleware, (req: AuthRequest, res: Response): void => {
-  const correction = db.corrections.findById(req.params.id);
-  
-  if (!correction) {
-    res.status(404).json({
-      success: false,
-      error: {
-        code: 'NOT_FOUND',
-        message: '更正单不存在',
-      },
-    });
-    return;
-  }
-  
-  const user = req.user!;
-  if (user.role === 'journalist' && correction.creatorId !== user.id) {
-    res.status(403).json({
-      success: false,
-      error: {
-        code: 'FORBIDDEN',
-        message: '无权查看此更正单',
-      },
-    });
-    return;
-  }
-  
-  const history = db.history.findByCorrectionId(req.params.id);
-  
-  res.json({
-    success: true,
-    data: {
-      ...correction,
-      history,
-    },
   });
 });
 
@@ -139,6 +102,423 @@ router.post('/', authMiddleware, roleMiddleware(['journalist']), (req: AuthReque
   res.status(201).json({
     success: true,
     data: correction,
+  });
+});
+
+interface BatchResultItem {
+  id: string;
+  success: boolean;
+  message: string;
+  reason?: string;
+}
+
+router.post('/batch/review', authMiddleware, roleMiddleware(['editor']), (req: AuthRequest, res: Response): void => {
+  const { ids, action, comment } = req.body;
+  const user = req.user!;
+  
+  if (!ids || !Array.isArray(ids) || ids.length === 0) {
+    res.status(400).json({
+      success: false,
+      error: { code: 'VALIDATION_ERROR', message: '请选择要操作的更正单' },
+    });
+    return;
+  }
+  
+  if (!action || !['pass', 'reject'].includes(action)) {
+    res.status(400).json({
+      success: false,
+      error: { code: 'VALIDATION_ERROR', message: '请选择通过或退回' },
+    });
+    return;
+  }
+  
+  if (action === 'reject' && (!comment || comment.trim() === '')) {
+    res.status(400).json({
+      success: false,
+      error: { code: 'VALIDATION_ERROR', message: '请填写退回原因' },
+    });
+    return;
+  }
+  
+  const results: BatchResultItem[] = [];
+  const now = getCurrentTimestamp();
+  
+  for (const id of ids) {
+    const correction = db.corrections.findById(id);
+    
+    if (!correction) {
+      results.push({ id, success: false, message: '跳过', reason: '更正单不存在' });
+      continue;
+    }
+    
+    if (correction.status === 'published') {
+      results.push({ id, success: false, message: '跳过', reason: '已发布的更正单不能批量操作' });
+      continue;
+    }
+    
+    if (correction.status === 'rejected') {
+      results.push({ id, success: false, message: '跳过', reason: '已退回的更正单不能批量操作' });
+      continue;
+    }
+    
+    if (correction.status !== 'pending_editor') {
+      results.push({ id, success: false, message: '跳过', reason: `当前状态(${statusConfig[correction.status]?.label || correction.status})不允许复核` });
+      continue;
+    }
+    
+    try {
+      const previousStatus = correction.status;
+      const newStatus = action === 'pass' ? 'pending_legal' : 'rejected';
+      const nextHandler = action === 'pass' ? '3' : correction.creatorId;
+      
+      db.corrections.update(id, {
+        status: newStatus,
+        currentHandlerId: nextHandler,
+        updatedAt: now,
+      });
+      
+      const historyRecord: HistoryRecord = {
+        id: generateId(),
+        correctionId: id,
+        action: action === 'pass' ? 'review_pass' : 'review_reject',
+        operatorId: user.id,
+        operatorName: user.displayName,
+        operatorRole: user.role,
+        comment: comment || (action === 'pass' ? '批量复核通过' : '批量退回'),
+        previousStatus,
+        newStatus,
+        createdAt: now,
+      };
+      db.history.create(historyRecord);
+      
+      results.push({ id, success: true, message: action === 'pass' ? '复核通过' : '已退回' });
+    } catch (e) {
+      results.push({ id, success: false, message: '失败', reason: (e as Error).message });
+    }
+  }
+  
+  const successCount = results.filter(r => r.success).length;
+  const skipCount = results.filter(r => !r.success && r.message === '跳过').length;
+  const failCount = results.filter(r => !r.success && r.message === '失败').length;
+  
+  res.json({
+    success: successCount > 0,
+    data: results,
+    summary: {
+      total: ids.length,
+      success: successCount,
+      skipped: skipCount,
+      failed: failCount,
+    },
+  });
+});
+
+router.post('/batch/legal', authMiddleware, roleMiddleware(['legal']), (req: AuthRequest, res: Response): void => {
+  const { ids, action, comment } = req.body;
+  const user = req.user!;
+  
+  if (!ids || !Array.isArray(ids) || ids.length === 0) {
+    res.status(400).json({
+      success: false,
+      error: { code: 'VALIDATION_ERROR', message: '请选择要操作的更正单' },
+    });
+    return;
+  }
+  
+  if (!action || !['confirm', 'reject'].includes(action)) {
+    res.status(400).json({
+      success: false,
+      error: { code: 'VALIDATION_ERROR', message: '请选择确认或退回' },
+    });
+    return;
+  }
+  
+  if (action === 'reject' && (!comment || comment.trim() === '')) {
+    res.status(400).json({
+      success: false,
+      error: { code: 'VALIDATION_ERROR', message: '请填写退回原因' },
+    });
+    return;
+  }
+  
+  const results: BatchResultItem[] = [];
+  const now = getCurrentTimestamp();
+  
+  for (const id of ids) {
+    const correction = db.corrections.findById(id);
+    
+    if (!correction) {
+      results.push({ id, success: false, message: '跳过', reason: '更正单不存在' });
+      continue;
+    }
+    
+    if (correction.status === 'published') {
+      results.push({ id, success: false, message: '跳过', reason: '已发布的更正单不能批量操作' });
+      continue;
+    }
+    
+    if (correction.status === 'rejected') {
+      results.push({ id, success: false, message: '跳过', reason: '已退回的更正单不能批量操作' });
+      continue;
+    }
+    
+    if (correction.status !== 'pending_legal') {
+      results.push({ id, success: false, message: '跳过', reason: `当前状态(${statusConfig[correction.status]?.label || correction.status})不允许法务确认` });
+      continue;
+    }
+    
+    try {
+      const previousStatus = correction.status;
+      const newStatus = action === 'confirm' ? 'pending_publish' : 'rejected';
+      const nextHandler = action === 'confirm' ? '4' : correction.creatorId;
+      
+      db.corrections.update(id, {
+        status: newStatus,
+        currentHandlerId: nextHandler,
+        updatedAt: now,
+      });
+      
+      const historyRecord: HistoryRecord = {
+        id: generateId(),
+        correctionId: id,
+        action: action === 'confirm' ? 'legal_confirm' : 'legal_reject',
+        operatorId: user.id,
+        operatorName: user.displayName,
+        operatorRole: user.role,
+        comment: comment || (action === 'confirm' ? '批量法务确认通过' : '批量法务退回'),
+        previousStatus,
+        newStatus,
+        createdAt: now,
+      };
+      db.history.create(historyRecord);
+      
+      results.push({ id, success: true, message: action === 'confirm' ? '确认通过' : '已退回' });
+    } catch (e) {
+      results.push({ id, success: false, message: '失败', reason: (e as Error).message });
+    }
+  }
+  
+  const successCount = results.filter(r => r.success).length;
+  const skipCount = results.filter(r => !r.success && r.message === '跳过').length;
+  const failCount = results.filter(r => !r.success && r.message === '失败').length;
+  
+  res.json({
+    success: successCount > 0,
+    data: results,
+    summary: {
+      total: ids.length,
+      success: successCount,
+      skipped: skipCount,
+      failed: failCount,
+    },
+  });
+});
+
+router.post('/batch/publish', authMiddleware, roleMiddleware(['admin']), (req: AuthRequest, res: Response): void => {
+  const { ids, comment } = req.body;
+  const user = req.user!;
+  
+  if (!ids || !Array.isArray(ids) || ids.length === 0) {
+    res.status(400).json({
+      success: false,
+      error: { code: 'VALIDATION_ERROR', message: '请选择要操作的更正单' },
+    });
+    return;
+  }
+  
+  const results: BatchResultItem[] = [];
+  const now = getCurrentTimestamp();
+  
+  for (const id of ids) {
+    const correction = db.corrections.findById(id);
+    
+    if (!correction) {
+      results.push({ id, success: false, message: '跳过', reason: '更正单不存在' });
+      continue;
+    }
+    
+    if (correction.status === 'published') {
+      results.push({ id, success: false, message: '跳过', reason: '已发布的更正单不能重复发布' });
+      continue;
+    }
+    
+    if (correction.status === 'rejected') {
+      results.push({ id, success: false, message: '跳过', reason: '已退回的更正单不能批量操作' });
+      continue;
+    }
+    
+    if (correction.status !== 'pending_publish') {
+      results.push({ id, success: false, message: '跳过', reason: `当前状态(${statusConfig[correction.status]?.label || correction.status})不允许发布` });
+      continue;
+    }
+    
+    if (correction.hasSourceDispute) {
+      const history = db.history.findByCorrectionId(id);
+      const hasLegalConfirm = history.some(h => h.action === 'legal_confirm');
+      if (!hasLegalConfirm) {
+        results.push({ id, success: false, message: '跳过', reason: '来源争议必须经过法务确认' });
+        continue;
+      }
+    }
+    
+    const duplicateError = validateNoDuplicatePublish(correction.manuscriptId, id);
+    if (duplicateError) {
+      results.push({ id, success: false, message: '跳过', reason: duplicateError.message });
+      continue;
+    }
+    
+    try {
+      const previousStatus = correction.status;
+      
+      db.corrections.update(id, {
+        status: 'published',
+        currentHandlerId: null,
+        updatedAt: now,
+      });
+      
+      const historyRecord: HistoryRecord = {
+        id: generateId(),
+        correctionId: id,
+        action: 'publish',
+        operatorId: user.id,
+        operatorName: user.displayName,
+        operatorRole: user.role,
+        comment: comment || '批量发布更正',
+        previousStatus,
+        newStatus: 'published',
+        createdAt: now,
+      };
+      db.history.create(historyRecord);
+      
+      results.push({ id, success: true, message: '已发布' });
+    } catch (e) {
+      results.push({ id, success: false, message: '失败', reason: (e as Error).message });
+    }
+  }
+  
+  const successCount = results.filter(r => r.success).length;
+  const skipCount = results.filter(r => !r.success && r.message === '跳过').length;
+  const failCount = results.filter(r => !r.success && r.message === '失败').length;
+  
+  res.json({
+    success: successCount > 0,
+    data: results,
+    summary: {
+      total: ids.length,
+      success: successCount,
+      skipped: skipCount,
+      failed: failCount,
+    },
+  });
+});
+
+router.post('/batch/revoke', authMiddleware, roleMiddleware(['admin']), (req: AuthRequest, res: Response): void => {
+  const { ids, comment } = req.body;
+  const user = req.user!;
+  
+  if (!ids || !Array.isArray(ids) || ids.length === 0) {
+    res.status(400).json({
+      success: false,
+      error: { code: 'VALIDATION_ERROR', message: '请选择要操作的更正单' },
+    });
+    return;
+  }
+  
+  const results: BatchResultItem[] = [];
+  const now = getCurrentTimestamp();
+  
+  for (const id of ids) {
+    const correction = db.corrections.findById(id);
+    
+    if (!correction) {
+      results.push({ id, success: false, message: '跳过', reason: '更正单不存在' });
+      continue;
+    }
+    
+    if (correction.status !== 'published') {
+      results.push({ id, success: false, message: '跳过', reason: `当前状态(${statusConfig[correction.status]?.label || correction.status})不允许撤销` });
+      continue;
+    }
+    
+    try {
+      const previousStatus = correction.status;
+      
+      db.corrections.update(id, {
+        status: 'pending_publish',
+        currentHandlerId: user.id,
+        updatedAt: now,
+      });
+      
+      const historyRecord: HistoryRecord = {
+        id: generateId(),
+        correctionId: id,
+        action: 'revoke',
+        operatorId: user.id,
+        operatorName: user.displayName,
+        operatorRole: user.role,
+        comment: comment || '批量撤销发布',
+        previousStatus,
+        newStatus: 'pending_publish',
+        createdAt: now,
+      };
+      db.history.create(historyRecord);
+      
+      results.push({ id, success: true, message: '已撤销' });
+    } catch (e) {
+      results.push({ id, success: false, message: '失败', reason: (e as Error).message });
+    }
+  }
+  
+  const successCount = results.filter(r => r.success).length;
+  const skipCount = results.filter(r => !r.success && r.message === '跳过').length;
+  const failCount = results.filter(r => !r.success && r.message === '失败').length;
+  
+  res.json({
+    success: successCount > 0,
+    data: results,
+    summary: {
+      total: ids.length,
+      success: successCount,
+      skipped: skipCount,
+      failed: failCount,
+    },
+  });
+});
+
+router.get('/:id', authMiddleware, (req: AuthRequest, res: Response): void => {
+  const correction = db.corrections.findById(req.params.id);
+  
+  if (!correction) {
+    res.status(404).json({
+      success: false,
+      error: {
+        code: 'NOT_FOUND',
+        message: '更正单不存在',
+      },
+    });
+    return;
+  }
+  
+  const user = req.user!;
+  if (user.role === 'journalist' && correction.creatorId !== user.id) {
+    res.status(403).json({
+      success: false,
+      error: {
+        code: 'FORBIDDEN',
+        message: '无权查看此更正单',
+      },
+    });
+    return;
+  }
+  
+  const history = db.history.findByCorrectionId(req.params.id);
+  
+  res.json({
+    success: true,
+    data: {
+      ...correction,
+      history,
+    },
   });
 });
 
@@ -541,386 +921,6 @@ router.delete('/:id', authMiddleware, (req: AuthRequest, res: Response): void =>
   res.status(400).json({
     success: false,
     error: { code: 'VALIDATION_ERROR', message: '更正单不可直接删除，请联系管理员' },
-  });
-});
-
-interface BatchResultItem {
-  id: string;
-  success: boolean;
-  message: string;
-  reason?: string;
-}
-
-router.post('/batch/review', authMiddleware, roleMiddleware(['editor']), (req: AuthRequest, res: Response): void => {
-  const { ids, action, comment } = req.body;
-  const user = req.user!;
-  
-  if (!ids || !Array.isArray(ids) || ids.length === 0) {
-    res.status(400).json({
-      success: false,
-      error: { code: 'VALIDATION_ERROR', message: '请选择要操作的更正单' },
-    });
-    return;
-  }
-  
-  if (!action || !['pass', 'reject'].includes(action)) {
-    res.status(400).json({
-      success: false,
-      error: { code: 'VALIDATION_ERROR', message: '请选择通过或退回' },
-    });
-    return;
-  }
-  
-  if (action === 'reject' && (!comment || comment.trim() === '')) {
-    res.status(400).json({
-      success: false,
-      error: { code: 'VALIDATION_ERROR', message: '请填写退回原因' },
-    });
-    return;
-  }
-  
-  const results: BatchResultItem[] = [];
-  const now = getCurrentTimestamp();
-  
-  for (const id of ids) {
-    const correction = db.corrections.findById(id);
-    
-    if (!correction) {
-      results.push({ id, success: false, message: '跳过', reason: '更正单不存在' });
-      continue;
-    }
-    
-    if (correction.status === 'published') {
-      results.push({ id, success: false, message: '跳过', reason: '已发布的更正单不能批量操作' });
-      continue;
-    }
-    
-    if (correction.status === 'rejected') {
-      results.push({ id, success: false, message: '跳过', reason: '已退回的更正单不能批量操作' });
-      continue;
-    }
-    
-    if (correction.status !== 'pending_editor') {
-      results.push({ id, success: false, message: '跳过', reason: `当前状态(${statusConfig[correction.status]?.label || correction.status})不允许复核` });
-      continue;
-    }
-    
-    try {
-      const previousStatus = correction.status;
-      const newStatus = action === 'pass' ? 'pending_legal' : 'rejected';
-      const nextHandler = action === 'pass' ? '3' : correction.creatorId;
-      
-      db.corrections.update(id, {
-        status: newStatus,
-        currentHandlerId: nextHandler,
-        updatedAt: now,
-      });
-      
-      const historyRecord: HistoryRecord = {
-        id: generateId(),
-        correctionId: id,
-        action: action === 'pass' ? 'review_pass' : 'review_reject',
-        operatorId: user.id,
-        operatorName: user.displayName,
-        operatorRole: user.role,
-        comment: comment || (action === 'pass' ? '批量复核通过' : '批量退回'),
-        previousStatus,
-        newStatus,
-        createdAt: now,
-      };
-      db.history.create(historyRecord);
-      
-      results.push({ id, success: true, message: action === 'pass' ? '复核通过' : '已退回' });
-    } catch (e) {
-      results.push({ id, success: false, message: '失败', reason: (e as Error).message });
-    }
-  }
-  
-  const successCount = results.filter(r => r.success).length;
-  const skipCount = results.filter(r => !r.success && r.message === '跳过').length;
-  const failCount = results.filter(r => !r.success && r.message === '失败').length;
-  
-  res.json({
-    success: successCount > 0,
-    data: results,
-    summary: {
-      total: ids.length,
-      success: successCount,
-      skipped: skipCount,
-      failed: failCount,
-    },
-  });
-});
-
-router.post('/batch/legal', authMiddleware, roleMiddleware(['legal']), (req: AuthRequest, res: Response): void => {
-  const { ids, action, comment } = req.body;
-  const user = req.user!;
-  
-  if (!ids || !Array.isArray(ids) || ids.length === 0) {
-    res.status(400).json({
-      success: false,
-      error: { code: 'VALIDATION_ERROR', message: '请选择要操作的更正单' },
-    });
-    return;
-  }
-  
-  if (!action || !['confirm', 'reject'].includes(action)) {
-    res.status(400).json({
-      success: false,
-      error: { code: 'VALIDATION_ERROR', message: '请选择确认或退回' },
-    });
-    return;
-  }
-  
-  if (action === 'reject' && (!comment || comment.trim() === '')) {
-    res.status(400).json({
-      success: false,
-      error: { code: 'VALIDATION_ERROR', message: '请填写退回原因' },
-    });
-    return;
-  }
-  
-  const results: BatchResultItem[] = [];
-  const now = getCurrentTimestamp();
-  
-  for (const id of ids) {
-    const correction = db.corrections.findById(id);
-    
-    if (!correction) {
-      results.push({ id, success: false, message: '跳过', reason: '更正单不存在' });
-      continue;
-    }
-    
-    if (correction.status === 'published') {
-      results.push({ id, success: false, message: '跳过', reason: '已发布的更正单不能批量操作' });
-      continue;
-    }
-    
-    if (correction.status === 'rejected') {
-      results.push({ id, success: false, message: '跳过', reason: '已退回的更正单不能批量操作' });
-      continue;
-    }
-    
-    if (correction.status !== 'pending_legal') {
-      results.push({ id, success: false, message: '跳过', reason: `当前状态(${statusConfig[correction.status]?.label || correction.status})不允许法务确认` });
-      continue;
-    }
-    
-    try {
-      const previousStatus = correction.status;
-      const newStatus = action === 'confirm' ? 'pending_publish' : 'rejected';
-      const nextHandler = action === 'confirm' ? '4' : correction.creatorId;
-      
-      db.corrections.update(id, {
-        status: newStatus,
-        currentHandlerId: nextHandler,
-        updatedAt: now,
-      });
-      
-      const historyRecord: HistoryRecord = {
-        id: generateId(),
-        correctionId: id,
-        action: action === 'confirm' ? 'legal_confirm' : 'legal_reject',
-        operatorId: user.id,
-        operatorName: user.displayName,
-        operatorRole: user.role,
-        comment: comment || (action === 'confirm' ? '批量法务确认通过' : '批量法务退回'),
-        previousStatus,
-        newStatus,
-        createdAt: now,
-      };
-      db.history.create(historyRecord);
-      
-      results.push({ id, success: true, message: action === 'confirm' ? '确认通过' : '已退回' });
-    } catch (e) {
-      results.push({ id, success: false, message: '失败', reason: (e as Error).message });
-    }
-  }
-  
-  const successCount = results.filter(r => r.success).length;
-  const skipCount = results.filter(r => !r.success && r.message === '跳过').length;
-  const failCount = results.filter(r => !r.success && r.message === '失败').length;
-  
-  res.json({
-    success: successCount > 0,
-    data: results,
-    summary: {
-      total: ids.length,
-      success: successCount,
-      skipped: skipCount,
-      failed: failCount,
-    },
-  });
-});
-
-router.post('/batch/publish', authMiddleware, roleMiddleware(['admin']), (req: AuthRequest, res: Response): void => {
-  const { ids, comment } = req.body;
-  const user = req.user!;
-  
-  if (!ids || !Array.isArray(ids) || ids.length === 0) {
-    res.status(400).json({
-      success: false,
-      error: { code: 'VALIDATION_ERROR', message: '请选择要操作的更正单' },
-    });
-    return;
-  }
-  
-  const results: BatchResultItem[] = [];
-  const now = getCurrentTimestamp();
-  
-  for (const id of ids) {
-    const correction = db.corrections.findById(id);
-    
-    if (!correction) {
-      results.push({ id, success: false, message: '跳过', reason: '更正单不存在' });
-      continue;
-    }
-    
-    if (correction.status === 'published') {
-      results.push({ id, success: false, message: '跳过', reason: '已发布的更正单不能重复发布' });
-      continue;
-    }
-    
-    if (correction.status === 'rejected') {
-      results.push({ id, success: false, message: '跳过', reason: '已退回的更正单不能批量操作' });
-      continue;
-    }
-    
-    if (correction.status !== 'pending_publish') {
-      results.push({ id, success: false, message: '跳过', reason: `当前状态(${statusConfig[correction.status]?.label || correction.status})不允许发布` });
-      continue;
-    }
-    
-    if (correction.hasSourceDispute) {
-      const history = db.history.findByCorrectionId(id);
-      const hasLegalConfirm = history.some(h => h.action === 'legal_confirm');
-      if (!hasLegalConfirm) {
-        results.push({ id, success: false, message: '跳过', reason: '来源争议必须经过法务确认' });
-        continue;
-      }
-    }
-    
-    const duplicateError = validateNoDuplicatePublish(correction.manuscriptId, id);
-    if (duplicateError) {
-      results.push({ id, success: false, message: '跳过', reason: duplicateError.message });
-      continue;
-    }
-    
-    try {
-      const previousStatus = correction.status;
-      
-      db.corrections.update(id, {
-        status: 'published',
-        currentHandlerId: null,
-        updatedAt: now,
-      });
-      
-      const historyRecord: HistoryRecord = {
-        id: generateId(),
-        correctionId: id,
-        action: 'publish',
-        operatorId: user.id,
-        operatorName: user.displayName,
-        operatorRole: user.role,
-        comment: comment || '批量发布更正',
-        previousStatus,
-        newStatus: 'published',
-        createdAt: now,
-      };
-      db.history.create(historyRecord);
-      
-      results.push({ id, success: true, message: '已发布' });
-    } catch (e) {
-      results.push({ id, success: false, message: '失败', reason: (e as Error).message });
-    }
-  }
-  
-  const successCount = results.filter(r => r.success).length;
-  const skipCount = results.filter(r => !r.success && r.message === '跳过').length;
-  const failCount = results.filter(r => !r.success && r.message === '失败').length;
-  
-  res.json({
-    success: successCount > 0,
-    data: results,
-    summary: {
-      total: ids.length,
-      success: successCount,
-      skipped: skipCount,
-      failed: failCount,
-    },
-  });
-});
-
-router.post('/batch/revoke', authMiddleware, roleMiddleware(['admin']), (req: AuthRequest, res: Response): void => {
-  const { ids, comment } = req.body;
-  const user = req.user!;
-  
-  if (!ids || !Array.isArray(ids) || ids.length === 0) {
-    res.status(400).json({
-      success: false,
-      error: { code: 'VALIDATION_ERROR', message: '请选择要操作的更正单' },
-    });
-    return;
-  }
-  
-  const results: BatchResultItem[] = [];
-  const now = getCurrentTimestamp();
-  
-  for (const id of ids) {
-    const correction = db.corrections.findById(id);
-    
-    if (!correction) {
-      results.push({ id, success: false, message: '跳过', reason: '更正单不存在' });
-      continue;
-    }
-    
-    if (correction.status !== 'published') {
-      results.push({ id, success: false, message: '跳过', reason: `当前状态(${statusConfig[correction.status]?.label || correction.status})不允许撤销` });
-      continue;
-    }
-    
-    try {
-      const previousStatus = correction.status;
-      
-      db.corrections.update(id, {
-        status: 'pending_publish',
-        currentHandlerId: user.id,
-        updatedAt: now,
-      });
-      
-      const historyRecord: HistoryRecord = {
-        id: generateId(),
-        correctionId: id,
-        action: 'revoke',
-        operatorId: user.id,
-        operatorName: user.displayName,
-        operatorRole: user.role,
-        comment: comment || '批量撤销发布',
-        previousStatus,
-        newStatus: 'pending_publish',
-        createdAt: now,
-      };
-      db.history.create(historyRecord);
-      
-      results.push({ id, success: true, message: '已撤销' });
-    } catch (e) {
-      results.push({ id, success: false, message: '失败', reason: (e as Error).message });
-    }
-  }
-  
-  const successCount = results.filter(r => r.success).length;
-  const skipCount = results.filter(r => !r.success && r.message === '跳过').length;
-  const failCount = results.filter(r => !r.success && r.message === '失败').length;
-  
-  res.json({
-    success: successCount > 0,
-    data: results,
-    summary: {
-      total: ids.length,
-      success: successCount,
-      skipped: skipCount,
-      failed: failCount,
-    },
   });
 });
 
